@@ -1,0 +1,230 @@
+---
+title: "Time Series Analysis"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    social: ["twitter", "facebook", "menu"]
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(openintro)
+library(highcharter)
+library(ggplot2)
+library(plotly)
+library(tidyverse)
+library(Rcpp)
+library(rlang)
+library(echarts4r)
+library(prophet)
+```
+
+```{r, include=FALSE}
+# Setting the environment and Importing data
+getwd()
+setwd("C:/Users/eseno/Desktop/Projects/R/Energy Project")
+data <- read.csv("pjm_hourly_est.csv")
+```
+
+```{r, include=FALSE}
+#First Impression About Data
+dim(data) # very first impression about dimensions of data
+str(data) # very first impression about data
+data$Datetime <- as.Date(data$Datetime) # Converting dates from chr into date structure 
+max(data$Datetime) # Max and min dates to understand the range of data
+min(data$Datetime)
+data_new <- separate(data,Datetime, c("y","m","d"))## Separating Date into Year, Month and Day
+dataRange <- max(data$Datetime) - min(data$Datetime)
+colnames(data)
+```
+
+First Impression 
+=======================================================================
+Row {data-height=300, data-weight= 200}
+-----------------------------------------------------------------------
+### What to Analyse?
+
+```{r}
+dataName <- c("PJM Energy Consumption Data")
+valueBox(dataName,color = "primary",icon = "fa-info")
+```
+
+### Where to Find the Data Set?
+
+```{r}
+dataWhere <- c("Kaggle Open Datasets")
+valueBox(dataWhere,color = "warning",icon = "fa-info")
+```
+
+Row {data-height=200, data-weight=200}
+-----------------------------------------------------------------------
+### Data Range
+
+```{r}
+dataRange <- c("From Apr. 1998 to Aug. 2018")
+valueBox(dataRange,color = "primary",icon = "fa-info")
+```
+
+### Number of Observations
+
+```{r}
+numberOfObservations <- nrow(data)
+valueBox(numberOfObservations,color = "orange",icon = "fa-calculator")
+```
+
+### Number of Columns
+
+```{r}
+numberOfColumns <- dim(data)[2]
+valueBox(numberOfColumns,color = "green",icon = "fa-calculator")
+```
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+```{r, include=FALSE}
+data_separete <- separate(data,Datetime, c("y","m","d"))
+# scale_x_date(limit=c(as.Date("2017-01-01"),as.Date("2017-02-11")))
+function_graph=function(data,a,b){
+  x <- ggplot(data,aes(x=a,y=b))+
+    geom_line(color="steel blue")+
+    xlab("")+
+    theme(axis.title.x=element_text(colour="Red", size=15),
+          axis.text.x=element_text(size=10),
+          axis.title.y=element_text(color ="Red", size=15),
+          axis.text.y=element_text(size=10),
+          plot.title= element_text(size=20,
+                                   colour ="dark blue",
+                                   hjust = 0.5))}
+```
+
+### PJM Load
+``` {r}
+function_graph(data=data, a=data$Datetime, b=data$PJM_Load)+
+  ylab("PJM Load")+
+  ggtitle("PJM Load (Apr. 1998 - Aug. 2018)")
+```
+
+### PJME Load
+
+``` {r}
+function_graph(data=data, a=data$Datetime, b=data$PJME)+
+  ylab("PJME Load")+
+  ggtitle("PJME Load (Apr. 1998 - Aug. 2018)")
+  # scale_x_date(limit = c(as.Date("2015-01-01"), as.Date("2018-01-01")))
+```
+
+### PJMW Load
+
+``` {r}
+function_graph(data=data, a=data$Datetime, b=data$PJMW)+
+  ylab("PJMW Load")+
+  ggtitle("PJMW Load (Apr. 1998 - Aug. 2018)")
+``` 
+
+
+Data
+=======================================================================
+
+``` {r, include = FALSE}
+
+# Due to the amount of data being analysed, I just taken the data in 2018 into consideration in this part.
+
+dataDT <- filter(data, Datetime >= "2018-01-01")%>% 
+  filter(Datetime <= "2018-08-03")%>% 
+  arrange(Datetime) %>% 
+  select(c(1:9,11:12)) #the columns providing only NA values were excluded from the table.
+```
+
+Note: Due to the amount of the data being analyzed, the data only in 2018 is taken here into consideration in order not to overload the table. 
+``` {r}
+datatable(data = dataDT,
+          caption = "PJM Energy Consumption Data (2018)",
+          rownames =  TRUE,
+          options = list(pageLegnth = 50),
+          filter = "top")
+``` 
+
+Missing Value Analysis
+=======================================================================
+
+```{r, include=FALSE}
+### Missing Value Analysis
+na <- apply(data, 2, function(missing_value) any(is.na(missing_value) | is.infinite(missing_value) | is.nan(missing_value)))
+na # gives the columns containing NA, Nan and Inf Values
+sapply(data, function(x) sum(is.na(x))) # gives the amount of na values in each column
+summary(data) # provides a general understanding of data structure 
+
+### A Detailed Analysis of Missing Values
+detectingMissingValues_min=function(data){ #detecting where the first non missing value is
+  NonNAindex <- which(!is.na(data))
+  firstNonNA <- min(NonNAindex)
+}
+detectingMissingValues_max=function(data){ #detecting where the last non missing value is
+  NonNAindex <- which(!is.na(data))
+  lastNonNa <- max(NonNAindex)
+}
+
+l <- list()
+percentageList <- list()
+for(i in names(data)){ # detects the numbers of the first and last non missing value in columns 
+  Na_i_min <- detectingMissingValues_min(data[i])
+  Na_i_max <- detectingMissingValues_max(data[i])
+  percentageNA <- round(mean(is.na(data[i])), digits =2)
+  index <- tibble(i,Na_i_min,Na_i_max,percentageNA)
+  l <- c(l,index)
+  percentageList <- c(percentageList,percentageNA)
+}
+l <- as.matrix(l)
+colnames(l) <- c("Values")
+print(l) # gives a summary of exact locations of the non missing values in each column 
+percentageList <- as.matrix(percentageList)
+percentageList
+```
+
+
+Row {data-height=650}
+-----------------------------------------------------------------------
+### **Missing Value Percentages(Power Consumption)**
+
+```{r}
+e_charts() %>% 
+ e_gauge(18, "PJME", center = c("20%", "50%"), radius = "75%") %>% 
+ e_gauge(20, "PJMW", center = c("50%", "50%"), radius = "75%") %>% 
+ e_gauge(82, "PJM_Load", center = c("80%", "50%"), radius = "75%")
+
+```
+
+Row {data-height=750}
+-----------------------------------------------------------------------
+
+### **Missing Value Percentages(Power Suppliers)**
+
+```{r}
+e_charts() %>% 
+  e_gauge(32, "AEP", center = c("10%", "30%"), radius = "55%") %>%
+  e_gauge(63, "COMED", center = c("30%", "30%"), radius = "55%")%>%
+  e_gauge(32, "DAYTON", center = c("50%", "30%"), radius = "55%") %>% 
+  e_gauge(68, "DEOK", center = c("70%", "30%"), radius = "55%") %>% 
+  e_gauge(35, "DOM", center = c("90%", "30%"), radius = "55%") %>% 
+  e_gauge(33, "DUQ", center = c("20%", "80%"), radius = "55%") %>% 
+  e_gauge(75, "EKPC", center = c("40%", "80%"), radius = "55%") %>% 
+  e_gauge(65, "FE", center = c("60%", "80%"), radius = "55%") %>% 
+  e_gauge(67, "NI", center = c("80%", "80%"), radius = "55%")  
+```
+
+Detailed Analysis
+=======================================================================
+
+
+
+Pivot Table
+=======================================================================
+
+
+
+
