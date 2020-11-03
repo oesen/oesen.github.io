@@ -21,6 +21,7 @@ library(Rcpp)
 library(rlang)
 library(echarts4r)
 library(prophet)
+library(gplots)
 ```
 
 ```{r, include=FALSE}
@@ -50,7 +51,7 @@ Row {data-height=300, data-weight= 200}
 
 ```{r}
 dataName <- c("PJM Energy Consumption Data")
-valueBox(dataName,color = "primary",icon = "fa-info")
+valueBox(dataName,color = "maroon",icon = "fa-info")
 ```
 
 ### Where to Find the Data Set?
@@ -62,14 +63,14 @@ valueBox(dataWhere,color = "warning",icon = "fa-info")
 
 Row {data-height=200, data-weight=200}
 -----------------------------------------------------------------------
-### Data Range
+### Available Data (in total)
 
 ```{r}
-dataRange <- c("From Apr. 1998 to Aug. 2018")
+dataRange <- cat("From: Apr. 1998\nTo: Aug. 2018")
 valueBox(dataRange,color = "primary",icon = "fa-info")
 ```
 
-### Number of Observations
+### Number of Observations (in total)
 
 ```{r}
 numberOfObservations <- nrow(data)
@@ -83,17 +84,33 @@ numberOfColumns <- dim(data)[2]
 valueBox(numberOfColumns,color = "green",icon = "fa-calculator")
 ```
 
+### The Analyzed Data  
+
+```{r}
+dataRange <- cat("From: Jan. 2002\nTo: Aug. 2018")
+valueBox(dataRange,color = "red",icon = "fa-info")
+```
+
+### Number of Observations (included into the analysis)
+
+```{r}
+numberOfObservations <- nrow(data) - as.integer(last(sum(is.na(data$PJME))-1))
+valueBox(numberOfObservations,color = "gray",icon = "fa-calculator")
+```
+
+
 Row {.tabset .tabset-fade}
 -----------------------------------------------------------------------
 
 ```{r, include=FALSE}
-data_separete <- separate(data,Datetime, c("y","m","d"))
-# scale_x_date(limit=c(as.Date("2017-01-01"),as.Date("2017-02-11")))
+# Defining a function for plotting graphs
 function_graph=function(data,a,b){
   x <- ggplot(data,aes(x=a,y=b))+
     geom_line(color="steel blue")+
     xlab("")+
-    theme(axis.title.x=element_text(colour="Red", size=15),
+    theme(panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          axis.title.x=element_text(colour="Red", size=15),
           axis.text.x=element_text(size=10),
           axis.title.y=element_text(color ="Red", size=15),
           axis.text.y=element_text(size=10),
@@ -102,25 +119,45 @@ function_graph=function(data,a,b){
                                    hjust = 0.5))}
 ```
 
-### PJM Load
-``` {r}
-function_graph(data=data, a=data$Datetime, b=data$PJM_Load)+
-  ylab("PJM Load")+
-  ggtitle("PJM Load (Apr. 1998 - Aug. 2018)")
+### PJM
+``` {r, include = FALSE}
+# Finding the breakpoints where NA values start
+arrange(data, desc(Datetime))
+lastE<- last(sum(is.na(data$PJME)))
+lastE
+lastW<- last(sum(is.na(data$PJMW)))
+lastW
 ```
 
-### PJME Load
+``` {r}
+# Plotting PJM (total) 
+msg <- "Explanation: \nAs we can see in the graph, the data for PJM is only available till 01.01.2002.  \nFrom this point on, the data is available for PJME and PJMW after 01.04.2002. \nSince the data for PJME and PJMW provide more detailled information,\nthis analysis focuses on both in order not to digress from the subject."
+function_graph(data=data, a=data$Datetime, b=data$PJM_Load)+
+  ylab("PJM Load")+
+  ggtitle("PJM Load (Apr. 1998 - Aug. 2018)")+
+    labs(subtitle = msg) +
+    theme(plot.margin = unit(c(0.5,0.4,0.25,0.25),"cm"),
+          rect = element_rect(fill = "transparent",color = NA),
+          plot.subtitle = element_text(hjust=0.5,
+                                       size = 10,
+                                       color = "maroon",
+                                       face = "bold"))
+```
+
+### PJME
 
 ``` {r}
+# Plotting PJME Consumption
 function_graph(data=data, a=data$Datetime, b=data$PJME)+
   ylab("PJME Load")+
   ggtitle("PJME Load (Apr. 1998 - Aug. 2018)")
-  # scale_x_date(limit = c(as.Date("2015-01-01"), as.Date("2018-01-01")))
+  ## an alternative to limit date: scale_x_date(limit = c(as.Date("2015-01-01"),     as.Date("2018-01-01")))
 ```
 
-### PJMW Load
+### PJMW
 
 ``` {r}
+# Plotting PJMW Consumption
 function_graph(data=data, a=data$Datetime, b=data$PJMW)+
   ylab("PJMW Load")+
   ggtitle("PJMW Load (Apr. 1998 - Aug. 2018)")
@@ -131,8 +168,7 @@ Data
 =======================================================================
 
 ``` {r, include = FALSE}
-
-# Due to the amount of data being analysed, I just taken the data in 2018 into consideration in this part.
+# Due to the amount of data being analyzed, I just taken the data in 2018 into consideration in this part.
 
 dataDT <- filter(data, Datetime >= "2018-01-01")%>% 
   filter(Datetime <= "2018-08-03")%>% 
@@ -140,7 +176,7 @@ dataDT <- filter(data, Datetime >= "2018-01-01")%>%
   select(c(1:9,11:12)) #the columns providing only NA values were excluded from the table.
 ```
 
-Note: Due to the amount of the data being analyzed, the data only in 2018 is taken here into consideration in order not to overload the table. 
+**Note**: Due to the amount of the data being analyzed, the data only in 2018 is taken here into consideration in order not to overload the table. 
 ``` {r}
 datatable(data = dataDT,
           caption = "PJM Energy Consumption Data (2018)",
@@ -183,7 +219,7 @@ l <- as.matrix(l)
 colnames(l) <- c("Values")
 print(l) # gives a summary of exact locations of the non missing values in each column 
 percentageList <- as.matrix(percentageList)
-percentageList
+percentageList # gives a matrix with the amount of missing values and necessary inputs for plotting gauges
 ```
 
 
@@ -217,7 +253,316 @@ e_charts() %>%
   e_gauge(67, "NI", center = c("80%", "80%"), radius = "55%")  
 ```
 
-Detailed Analysis
+Detailed Analysis (PJME)
+=======================================================================
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+
+```{r, include = FALSE}
+# Data Cleaning
+
+dataCleaned <- filter(data, Datetime >= "2002-01-02" )%>% # excluding data from analysis before 2002 due to the non-availability of the data
+  arrange(Datetime)%>%  
+  select(c(-13)) 
+
+year <- separate(dataCleaned, Datetime, c("y"))%>% 
+  select(1)
+
+dataCleaned <- cbind(year, dataCleaned)
+dataCleaned$y <- as.integer(dataCleaned$y)
+str(dataCleaned)
+
+# Subseting Data for each year individually
+subset2002 <- subset(dataCleaned, y==2002)
+subset2003 <- subset(dataCleaned, y==2003)
+subset2004 <- subset(dataCleaned, y==2004)
+subset2005 <- subset(dataCleaned, y==2005)
+subset2006 <- subset(dataCleaned, y==2006)
+subset2007 <- subset(dataCleaned, y==2007)
+subset2008 <- subset(dataCleaned, y==2008)
+subset2009 <- subset(dataCleaned, y==2009)
+subset2010 <- subset(dataCleaned, y==2010)
+subset2011 <- subset(dataCleaned, y==2011)
+subset2012 <- subset(dataCleaned, y==2012)
+subset2013 <- subset(dataCleaned, y==2013)
+subset2014 <- subset(dataCleaned, y==2014)
+subset2015 <- subset(dataCleaned, y==2015)
+subset2016 <- subset(dataCleaned, y==2016)
+subset2017 <- subset(dataCleaned, y==2017)
+subset2018 <- subset(dataCleaned, y==2018)
+
+# Subsetting Data as Time Intervals
+subset2005_TI <-filter(dataCleaned, Datetime >= "2002-01-01")%>% 
+             filter(Datetime <= "2005-12-31")
+subset2009_TI <-filter(dataCleaned, Datetime >= "2006-01-01")%>% 
+             filter(Datetime <= "2009-12-31")
+subset2013_TI <-filter(dataCleaned, Datetime >= "2010-01-01")%>% 
+             filter(Datetime <= "2013-12-31")
+subset2018_TI <-filter(dataCleaned, Datetime >= "2014-01-01")%>% 
+             filter(Datetime <= "2018-12-31")
+```
+
+```{r, include = FALSE} 
+# Defining a function to plot graphs individually
+
+graphAnalysisE=function(data,a,b){  
+x <- ggplot(data)+
+    geom_line(aes(x=a,y=b),color="steel blue", alpha = 0.7)+
+    xlab("")+ ylab("")+
+    geom_smooth(aes(x=Datetime, y=PJME), colour = "maroon")+
+    stat_smooth(aes(x=Datetime, y=PJME), method = 'lm', se = FALSE, colour =  "magenta1") +
+    theme(panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          axis.title.x=element_text(colour="Red", size=15),
+          axis.text.x=element_text(size=10),
+          axis.title.y=element_text(color ="Red", size=15),
+          axis.text.y=element_text(size=10),
+          plot.title= element_text(size=20,
+                                   colour ="dark blue",
+                                   hjust = 0.5))}
+
+```
+
+### 2002-2005 (PJME)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisE(data=subset2002,a=subset2002$Datetime, b=subset2002$PJME)+
+  ggtitle("PJME Consumption (2002)")
+
+
+graphAnalysisE(data=subset2003,a=subset2003$Datetime, b=subset2003$PJME)+
+  ggtitle("PJME Consumption (2003)")
+
+graphAnalysisE(data=subset2004,a=subset2004$Datetime, b=subset2004$PJME)+
+  ggtitle("PJME Consumption (2004)")
+
+graphAnalysisE(data=subset2005,a=subset2005$Datetime, b=subset2005$PJME)+
+  ggtitle("PJME Consumption (2005)")
+
+```
+
+### 2006-2009 (PJME)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisE(data=subset2006,a=subset2006$Datetime, b=subset2006$PJME)+
+  ggtitle("PJME Consumption (2006)")
+
+graphAnalysisE(data=subset2007,a=subset2007$Datetime, b=subset2007$PJME)+
+  ggtitle("PJME Consumption (2007)")
+
+graphAnalysisE(data=subset2008,a=subset2008$Datetime, b=subset2008$PJME)+
+  ggtitle("PJME Consumption (2008)")
+
+graphAnalysisE(data=subset2009,a=subset2009$Datetime, b=subset2009$PJME)+
+  ggtitle("PJME Consumption (2009)")
+
+```
+
+### 2010-2013 (PJME)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisE(data=subset2010,a=subset2010$Datetime, b=subset2010$PJME)+
+  ggtitle("PJME Consumption (2010)")
+
+graphAnalysisE(data=subset2011,a=subset2011$Datetime, b=subset2011$PJME)+
+  ggtitle("PJME Consumption (2011)")
+
+graphAnalysisE(data=subset2012,a=subset2012$Datetime, b=subset2012$PJME)+
+  ggtitle("PJME Consumption (2012)")
+
+graphAnalysisE(data=subset2013,a=subset2013$Datetime, b=subset2013$PJME)+
+  ggtitle("PJME Consumption (2013)")
+
+```
+
+### 2014-2018 (PJME)
+```{r, fig.show="hold", out.width="30%"}
+
+graphAnalysisE(data=subset2014,a=subset2014$Datetime, b=subset2014$PJME)+
+  ggtitle("PJME Consumption (2014)")
+
+graphAnalysisE(data=subset2015,a=subset2015$Datetime, b=subset2015$PJME)+
+  ggtitle("PJME Consumption (2015)")
+
+graphAnalysisE(data=subset2016,a=subset2016$Datetime, b=subset2016$PJME)+
+  ggtitle("PJME Consumption (2016)")
+
+graphAnalysisE(data=subset2017,a=subset2017$Datetime, b=subset2017$PJME)+
+  ggtitle("PJME Consumption (2017)")
+
+graphAnalysisE(data=subset2018,a=subset2018$Datetime, b=subset2018$PJME)+
+  ggtitle("PJME Consumption (2018)")
+```
+
+### PJME (2002-2005)
+```{r}
+ggplot(data = subset2005_TI)+
+  geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJME (2006-2009)
+```{r}
+
+ggplot(data = subset2009_TI)+
+  geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJME (2010-2013)
+```{r}
+ggplot(data = subset2013_TI)+
+  geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJME (2014-2018)
+```{r}
+ggplot(data = subset2018_TI)+
+  geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
+  facet_grid(y~., scales ="free", space = "free")+
+  xlab("")
+```
+
+Detailed Analysis (PJMW)
+=======================================================================
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+```{r, include=FALSE}
+graphAnalysisW=function(data,a,b){  
+x <- ggplot(data)+
+    geom_line(aes(x=a,y=b),color="steel blue", alpha = 0.7)+
+    xlab("")+ ylab("")+
+    geom_smooth(aes(x=Datetime, y=PJMW), colour = "maroon")+
+    stat_smooth(aes(x=Datetime, y=PJMW), method = 'lm', se = FALSE, colour =  "magenta1") +
+    theme(panel.background = element_rect(fill = "transparent"),
+          plot.background = element_rect(fill = "transparent", color = NA),
+          axis.title.x=element_text(colour="Red", size=15),
+          axis.text.x=element_text(size=10),
+          axis.title.y=element_text(color ="Red", size=15),
+          axis.text.y=element_text(size=10),
+          plot.title= element_text(size=20,
+                                   colour ="dark blue",
+                                   hjust = 0.5))}
+```
+
+### 2002-2005 (PJMW)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisW(data=subset2002,a=subset2002$Datetime, b=subset2002$PJMW)+
+  ggtitle("PJMW Consumption (2002)")
+
+graphAnalysisW(data=subset2003,a=subset2003$Datetime, b=subset2003$PJMW)+
+  ggtitle("PJMW Consumption (2003)")
+
+graphAnalysisW(data=subset2004,a=subset2004$Datetime, b=subset2004$PJMW)+
+  ggtitle("PJMW Consumption (2004)")
+
+graphAnalysisW(data=subset2005,a=subset2005$Datetime, b=subset2005$PJMW)+
+  ggtitle("PJMW Consumption (2005)")
+
+```
+
+### 2006-2009 (PJMW)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisW(data=subset2006,a=subset2006$Datetime, b=subset2006$PJMW)+
+  ggtitle("PJMW Consumption (2006)")
+
+graphAnalysisW(data=subset2007,a=subset2007$Datetime, b=subset2007$PJMW)+
+  ggtitle("PJMW Consumption (2007)")
+
+graphAnalysisW(data=subset2008,a=subset2008$Datetime, b=subset2008$PJMW)+
+  ggtitle("PJMW Consumption (2008)")
+
+graphAnalysisW(data=subset2009,a=subset2009$Datetime, b=subset2009$PJMW)+
+  ggtitle("PJMW Consumption (2009)")
+
+```
+
+### 2010-2013 (PJMW)
+```{r, fig.show="hold", out.width="50%"}
+
+graphAnalysisW(data=subset2010,a=subset2010$Datetime, b=subset2010$PJMW)+
+  ggtitle("PJMW Consumption (2010)")
+
+graphAnalysisW(data=subset2011,a=subset2011$Datetime, b=subset2011$PJMW)+
+  ggtitle("PJMW Consumption (2011)")
+
+graphAnalysisW(data=subset2012,a=subset2012$Datetime, b=subset2012$PJMW)+
+  ggtitle("PJMW Consumption (2012)")
+
+graphAnalysisW(data=subset2013,a=subset2013$Datetime, b=subset2013$PJMW)+
+  ggtitle("PJMW Consumption (2013)")
+
+```
+
+### 2014-2018 (PJMW)
+```{r, fig.show="hold", out.width="30%"}
+
+graphAnalysisW(data=subset2014,a=subset2014$Datetime, b=subset2014$PJMW)+
+  ggtitle("PJMW Consumption (2014)")
+
+graphAnalysisW(data=subset2015,a=subset2015$Datetime, b=subset2015$PJMW)+
+  ggtitle("PJMW Consumption (2015)")
+
+graphAnalysisW(data=subset2016,a=subset2016$Datetime, b=subset2016$PJMW)+
+  ggtitle("PJMW Consumption (2016)")
+
+graphAnalysisW(data=subset2017,a=subset2017$Datetime, b=subset2017$PJMW)+
+  ggtitle("PJMW Consumption (2017)")
+
+graphAnalysisW(data=subset2018,a=subset2018$Datetime, b=subset2018$PJMW)+
+  ggtitle("PJMW Consumption (2018)")
+```
+
+### PJMW (2002-2005)
+```{r}
+ggplot(data = subset2005_TI)+
+  geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJMW (2006-2009)
+```{r}
+
+ggplot(data = subset2009_TI)+
+  geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJMW (2010-2013)
+```{r}
+ggplot(data = subset2013_TI)+
+  geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
+  facet_grid(y~., scales="free")+
+  xlab("")
+```
+
+### PJMW (2014-2018)
+```{r}
+ggplot(data = subset2018_TI)+
+  geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
+  geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
+  facet_grid(y~., scales ="free", space = "free")+
+  xlab("")
+```
+
+Predictions
 =======================================================================
 
 
