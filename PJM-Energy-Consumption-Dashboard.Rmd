@@ -559,7 +559,7 @@ ggplot(data = subset2018_TI)+
   geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
   facet_grid(y~., scales ="free", space = "free")+
-  xlab("")
+  xlab("") 
 ```
 
 Predictions
