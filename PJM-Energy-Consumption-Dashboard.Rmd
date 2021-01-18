@@ -11,17 +11,18 @@ output:
 library(flexdashboard)
 library(knitr)
 library(DT)
-library(rpivotTable)
 library(openintro)
 library(highcharter)
 library(ggplot2)
-library(plotly)
 library(tidyverse)
 library(Rcpp)
 library(rlang)
 library(echarts4r)
 library(prophet)
 library(gplots)
+library (lubridate)
+library(forecast)
+library(fpp2)
 ```
 
 ```{r, include=FALSE}
@@ -33,6 +34,7 @@ data <- read.csv("pjm_hourly_est.csv")
 
 ```{r, include=FALSE}
 #First Impression About Data
+class(data) # gives the class of the data
 dim(data) # very first impression about dimensions of data
 str(data) # very first impression about data
 data$Datetime <- as.Date(data$Datetime) # Converting dates from chr into date structure 
@@ -131,7 +133,7 @@ lastW
 
 ``` {r}
 # Plotting PJM (total) 
-msg <- "Explanation: \nAs we can see in the graph, the data for PJM is only available till 01.01.2002.  \nFrom this point on, the data is available for PJME and PJMW after 01.04.2002. \nSince the data for PJME and PJMW provide more detailled information,\nthis analysis focuses on both in order not to digress from the subject."
+msg <- "Explanation: \nAs we can see in the graph that the data for PJM is only available till 01.01.2002.  \nFrom this point on, the data is available for PJME and PJMW after 01.04.2002. \nSince the data for PJME and PJMW provide more detailled information,\nthis analysis focuses on both in order not to digress from the subject."
 function_graph(data=data, a=data$Datetime, b=data$PJM_Load)+
   ylab("PJM Load")+
   ggtitle("PJM Load (Apr. 1998 - Aug. 2018)")+
@@ -169,7 +171,6 @@ Data
 
 ``` {r, include = FALSE}
 # Due to the amount of data being analyzed, I just taken the data in 2018 into consideration in this part.
-
 dataDT <- filter(data, Datetime >= "2018-01-01")%>% 
   filter(Datetime <= "2018-08-03")%>% 
   arrange(Datetime) %>% 
@@ -261,7 +262,6 @@ Row {.tabset .tabset-fade}
 
 ```{r, include = FALSE}
 # Data Cleaning
-
 dataCleaned <- filter(data, Datetime >= "2002-01-02" )%>% # excluding data from analysis before 2002 due to the non-availability of the data
   arrange(Datetime)%>%  
   select(c(-13)) 
@@ -309,14 +309,14 @@ subset2018_TI <-filter(dataCleaned, Datetime >= "2014-01-01")%>%
 graphAnalysisE=function(data,a,b){  
 x <- ggplot(data)+
     geom_line(aes(x=a,y=b),color="steel blue", alpha = 0.7)+
-    xlab("")+ ylab("")+
+    xlab("")+ ylab(" Est. Consumption in Megawatts(MW)")+
     geom_smooth(aes(x=Datetime, y=PJME), colour = "maroon")+
     stat_smooth(aes(x=Datetime, y=PJME), method = 'lm', se = FALSE, colour =  "magenta1") +
     theme(panel.background = element_rect(fill = "transparent"),
           plot.background = element_rect(fill = "transparent", color = NA),
           axis.title.x=element_text(colour="Red", size=15),
           axis.text.x=element_text(size=10),
-          axis.title.y=element_text(color ="Red", size=15),
+          axis.title.y=element_text(color ="Navy Blue", size=10),
           axis.text.y=element_text(size=10),
           plot.title= element_text(size=20,
                                    colour ="dark blue",
@@ -329,7 +329,6 @@ x <- ggplot(data)+
 
 graphAnalysisE(data=subset2002,a=subset2002$Datetime, b=subset2002$PJME)+
   ggtitle("PJME Consumption (2002)")
-
 
 graphAnalysisE(data=subset2003,a=subset2003$Datetime, b=subset2003$PJME)+
   ggtitle("PJME Consumption (2003)")
@@ -401,7 +400,7 @@ ggplot(data = subset2005_TI)+
   geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("")+ ylab(" PJME-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJME (2006-2009)
@@ -411,7 +410,7 @@ ggplot(data = subset2009_TI)+
   geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("") + ylab(" PJME-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJME (2010-2013)
@@ -420,7 +419,7 @@ ggplot(data = subset2013_TI)+
   geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("") + ylab(" PJME-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJME (2014-2018)
@@ -429,7 +428,7 @@ ggplot(data = subset2018_TI)+
   geom_line(aes(x=Datetime, y=PJME),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJME), colour = "red", fill =NA)+
   facet_grid(y~., scales ="free", space = "free")+
-  xlab("")
+  xlab("") + ylab(" PJME-Est. Consumption in Megawatts(MW)")
 ```
 
 Detailed Analysis (PJMW)
@@ -441,14 +440,14 @@ Row {.tabset .tabset-fade}
 graphAnalysisW=function(data,a,b){  
 x <- ggplot(data)+
     geom_line(aes(x=a,y=b),color="steel blue", alpha = 0.7)+
-    xlab("")+ ylab("")+
+    xlab("")+ ylab("Est. Consumption in Megawatts(MW)")+
     geom_smooth(aes(x=Datetime, y=PJMW), colour = "maroon")+
     stat_smooth(aes(x=Datetime, y=PJMW), method = 'lm', se = FALSE, colour =  "magenta1") +
     theme(panel.background = element_rect(fill = "transparent"),
           plot.background = element_rect(fill = "transparent", color = NA),
           axis.title.x=element_text(colour="Red", size=15),
           axis.text.x=element_text(size=10),
-          axis.title.y=element_text(color ="Red", size=15),
+          axis.title.y=element_text(color ="Navy Blue", size=10),
           axis.text.y=element_text(size=10),
           plot.title= element_text(size=20,
                                    colour ="dark blue",
@@ -531,7 +530,7 @@ ggplot(data = subset2005_TI)+
   geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("") + ylab(" PJMW-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJMW (2006-2009)
@@ -541,7 +540,7 @@ ggplot(data = subset2009_TI)+
   geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("")+ ylab(" PJMW-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJMW (2010-2013)
@@ -550,7 +549,7 @@ ggplot(data = subset2013_TI)+
   geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
   facet_grid(y~., scales="free")+
-  xlab("")
+  xlab("")+ ylab(" PJMW-Est. Consumption in Megawatts(MW)")
 ```
 
 ### PJMW (2014-2018)
@@ -559,16 +558,122 @@ ggplot(data = subset2018_TI)+
   geom_line(aes(x=Datetime, y=PJMW),colour ="steel blue",alpha=0.7)+
   geom_smooth(aes(x=Datetime, y=PJMW), colour = "red", fill =NA)+
   facet_grid(y~., scales ="free", space = "free")+
-  xlab("") 
+  xlab("")+ ylab(" PJMW-Est. Consumption in Megawatts(MW)")
 ```
 
-Predictions
+Predictions (PJME)
 =======================================================================
 
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+```{r, include=FALSE}
+DataPJME <- dataCleaned[c(2,12)]
+DataPJME$Datetime <- as_date(DataPJME$Datetime)
 
+DataPJMW <- dataCleaned[c(2,13)] %>% 
+  drop_na()
+DataPJMW$Datetime <- as_date(DataPJMW$Datetime)
 
-Pivot Table
+# Converting the format into time series
+ts_DataPJME <- ts(data = DataPJME$PJME, start=c(2002,01), end=c(2018,08), frequency=8760)
+summary(ts_DataPJME)
+
+ts_DataPJMW <- ts(data = DataPJMW$PJMW, start=c(2002,04), end=c(2018,08), frequency=8760)  
+summary(ts_DataPJMW)
+
+```  
+
+### Decomposition (PJME)
+
+```{r, fig.show="hold", out.width="45%"}
+PJME_decomposed <- stl(ts_DataPJME,s.window = "period") #Decomposition of trend and seasonality
+seasonplot(ts_DataPJME)#Plotting seasonality
+plot(PJME_decomposed)
+```
+
+### Investigation and getting rid of Trend Component (PJME)
+
+```{r}
+ts_DataPJME_diff <- diff(ts_DataPJME) # to only see changes without trend component 
+autoplot(ts_DataPJME_diff) +
+  ggtitle ("Change in Consumption (MW)-PJME") +
+  ylab ("PJME Consumption (MW)")
+
+```
+
+### Investigating of Seasonality Component (PJME)
+
+```{r, fig.show="hold", out.width="45%"}
+#Having a look at the seasonality component
+ggseasonplot(ts_DataPJME_diff) +
+  ggtitle ("Seasonal Plot (PJME)") + ylab("Consumption in MW")
+
+# Since the previous plot provided us a complicated overview about seasonality, plotting it a second time using a different technique
+ggsubseriesplot(ts_DataPJME_diff)+
+  ggtitle ("Seasonal Plot (PJME)")+ ylab("Consumption in MW")
+
+```
+
+### Winters Method and Prediction for 1 year (PJME)
+
+```{r, include = FALSE}
+# We have definitely a trend and seasonality component in our data.
+# To get rid of trend component, we use the first difference of the data.
+
+fitE <- HoltWinters(ts_DataPJME_diff) # with trend (we got rid of trend here due to diff)+ seasonality (3. exponential)
+print(summary(fitE)) # summary of fit function
+```
+
+```{r, fig.show="hold", out.width="45%"}
+checkresiduals(fitE) # checking residuals to get a feeling about the model
+plot(forecast(fitE, 8760))
+  # predicting the next year via using HoltWinters method and plotting it
+```
+
+Predictions (PJMW)
 =======================================================================
+
+Row {.tabset .tabset-fade}
+-----------------------------------------------------------------------
+### Decomposition (PJMW)
+```{r, fig.show="hold", out.width="45%"}
+PJMW_decomposed <- stl(ts_DataPJMW,s.window = "period") #Decomposition of trend and seasonality
+seasonplot(ts_DataPJMW)#Plotting seasonality
+plot(PJMW_decomposed) #Plotting all together
+
+```
+
+### Investigation and getting rid of Trend Component (PJMW)
+```{r}
+ts_DataPJMW_diff <- diff(ts_DataPJMW) # to only see changes without trend component 
+autoplot(ts_DataPJMW_diff) +
+  ggtitle ("Change in Consumption (MW)-PJMW") +
+  ylab ("PJMW Consumption (MW)")
+
+```
+
+### Investigating of Seasonality Component (PJMW)
+```{r, fig.show="hold", out.width="45%"}
+#Having a look at the seasonality component
+ggseasonplot(ts_DataPJMW_diff) +
+  ggtitle ("Seasonal Plot (PJMW)") + ylab("Consumption in MW")
+
+# Since the previous plot provided us a complicated overview about seasonality, plotting it a second time using a different technique
+ggsubseriesplot(ts_DataPJMW_diff)+
+  ggtitle ("Seasonal Plot (PJMW)")+ ylab("Consumption in MW")
+
+```
+
+### Winters Method and Prediction for 1 year (PJMW)
+```{r, include = FALSE}
+fitW <- HoltWinters(ts_DataPJMW)
+print(summary(fitW)) # summary of fit function
+``` 
+
+```{r,fig.show="hold", out.width="45%"}
+checkresiduals(fitW) # checking residuals to get a feeling about the model
+plot(forecast(fitW, 8760))
+``` 
 
 
 
